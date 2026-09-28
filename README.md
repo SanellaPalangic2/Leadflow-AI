@@ -6,30 +6,8 @@ automated workflow that still keeps a person in control.
 
 **Design principle: AI suggests, rules decide, people approve.**
 
-## Quick start
 
-Requires Python 3.10+.
-
-```bash
-python -m venv .venv && source .venv/bin/activate    # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env                                   # Windows: copy .env.example .env
-python seed.py --reset                                 # optional: load 6 sample leads
-flask run                                              # open http://127.0.0.1:5001
-```
-
-The app runs on port **5001** because macOS reserves port 5000 for AirPlay. Keep Flask debug mode off
-for demos, since debug mode shows stack traces in the browser.
-
-Run the tests with `python -m unittest discover tests -v`. `tests/scenarios.py` has five realistic
-leads (high-priority solar, solar + roofing, an information request, missing information, and an
-ambiguous inquiry) that you can also paste into the form during a demo.
-
-### Pre-demo checklist
-
-1. Start the app and check the terminal line `LeadFlow starting: DEMO_MODE=...`.
-2. Check the header badge: **Demo mode**, **Live AI**, or a red **No API key** warning.
-3. For a clean dashboard, run `python seed.py --reset` (or delete `leadflow.db`).
+[demo link](https://leadflow-6ive.onrender.com/login?next=/)
 
 ### Live AI mode
 
@@ -37,14 +15,6 @@ In `.env`, set `DEMO_MODE=false` and `ANTHROPIC_API_KEY=...`, then restart the a
 switches from **Demo mode** to **Live AI**. If the API is down, the key is wrong, or the model returns
 bad JSON, the lead is still saved using a rule-based fallback and flagged for manual review.
 
-## Deploy on Render (free) with the real AI
-
-1. Push this folder to a GitHub repository (`.env` and `leadflow.db` are git-ignored, so no secrets are uploaded).
-2. On [render.com](https://render.com), choose **New → Blueprint** and pick the repository. `render.yaml` configures everything.
-3. In Render, open the **leadflow** service → **Environment** and add two secrets:
-   - `ANTHROPIC_API_KEY`: your Claude API key
-   - `APP_PASSWORD`: the password visitors must enter
-4. Save; Render redeploys. Open the `https://leadflow-xxxx.onrender.com` link and sign in.
 
 Safeguards for a public site:
 - **Password page** in front of every page (only `/healthz`, used by Render's health check, is open).
