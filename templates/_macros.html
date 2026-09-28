@@ -1,0 +1,20 @@
+{% macro priority_badge(p) -%}
+  <span class="badge prio-{{ p|lower }}">{{ p }}</span>
+{%- endmacro %}
+
+{% macro source(kind) -%}
+  <span class="src src-{{ kind|lower }}" title="{{ {'Rule': 'Deterministic business logic', 'AI': 'Language model output', 'Human': 'Decided by a person'}[kind] }}">{{ kind }}</span>
+{%- endmacro %}
+
+{% macro status_badge(s) -%}
+  <span class="badge status-{{ s|lower }}">{{ s }}</span>
+{%- endmacro %}
+
+{% macro due(lead) -%}
+  {% set open = lead.status in ('New', 'Reviewed') %}
+  {% set label = lead.follow_up_date|due_label %}
+  <span class="due {{ 'due-late' if open and lead.follow_up_date < today }} {{ 'due-today' if open and lead.follow_up_date == today }}">
+    {{ lead.follow_up_date|nice_date }}
+    {% if open %}<small>{{ label }}</small>{% endif %}
+  </span>
+{%- endmacro %}

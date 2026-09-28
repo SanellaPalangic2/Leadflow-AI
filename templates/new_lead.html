@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% from "_macros.html" import source %}
+{% block title %}New lead{% endblock %}
+{% macro field_error(name) -%}
+  {% if errors.get(name) %}<span class="field-error">{{ errors[name] }}</span>{% endif %}
+{%- endmacro %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>New lead</h1>
+    <p class="muted">Enter an inquiry as it came in. LeadFlow will analyze, prioritize and draft a reply.</p>
+  </div>
+  <button type="button" class="btn btn-ghost" id="fill-sample">Fill with sample data</button>
+</div>
+
+<div class="form-layout">
+  <form class="card form-card" method="post" action="{{ url_for('create_lead') }}" id="lead-form" novalidate>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <h2 class="section-title">Contact</h2>
+    <div class="grid-2">
+      <label class="field {{ 'has-error' if errors.get('first_name') }}">
+        <span>First name <em>*</em></span>
+        <input name="first_name" value="{{ form.get('first_name', '') }}" autocomplete="given-name" required maxlength="60">
+        {{ field_error('first_name') }}
+      </label>
+      <label class="field {{ 'has-error' if errors.get('last_name') }}">
+        <span>Last name <em>*</em></span>
+        <input name="last_name" value="{{ form.get('last_name', '') }}" autocomplete="family-name" required maxlength="60">
+        {{ field_error('last_name') }}
+      </label>
+      <label class="field {{ 'has-error' if errors.get('email') }}">
+        <span>Email</span>
+        <input name="email" type="email" value="{{ form.get('email', '') }}" autocomplete="email" maxlength="120">
+        {{ field_error('email') }}
+      </label>
+      <label class="field {{ 'has-error' if errors.get('phone') }}">
+        <span>Phone</span>
+        <input name="phone" type="tel" value="{{ form.get('phone', '') }}" autocomplete="tel" maxlength="30">
+        {{ field_error('phone') }}
+      </label>
+    </div>
+    <p class="hint">An email or phone number is required. Missing either one is flagged as a warning.</p>
+
+    <label class="field {{ 'has-error' if errors.get('address') }}">
+      <span>Property address</span>
+      <input name="address" value="{{ form.get('address', '') }}" autocomplete="street-address" maxlength="200">
+      {{ field_error('address') }}
+    </label>
+
+    <h2 class="section-title">Project</h2>
+    <fieldset class="field {{ 'has-error' if errors.get('service_interest') }}">
+      <legend>Service interest <em>*</em></legend>
+      <div class="choice-group">
+        {% for s in services %}
+        <label class="choice">
+          <input type="radio" name="service_interest" value="{{ s }}" {{ 'checked' if form.get('service_interest') == s }}>
+          <span>{{ s }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      {{ field_error('service_interest') }}
+    </fieldset>
+
+    <label class="field field-narrow {{ 'has-error' if errors.get('monthly_bill') }}">
+      <span>Approx. monthly electric bill</span>
+      <div class="input-prefix"><span>$</span>
+        <input name="monthly_bill" inputmode="decimal" value="{{ form.get('monthly_bill', '') }}" placeholder="180">
+      </div>
+      {{ field_error('monthly_bill') }}
+    </label>
+
+    <label class="field {{ 'has-error' if errors.get('message') }}">
+      <span>Message from the lead</span>
+      <textarea name="message" rows="5" maxlength="2000" placeholder="What did they say? Roof age, timeline, concerns, questions…">{{ form.get('message', '') }}</textarea>
+      {{ field_error('message') }}
+    </label>
+
+    <div class="form-actions">
+      <a class="btn btn-ghost" href="{{ url_for('dashboard') }}">Cancel</a>
+      <button class="btn btn-primary" type="submit" data-loading-text="Analyzing lead…">Analyze &amp; save lead</button>
+    </div>
+  </form>
+
+  <aside class="card steps-card">
+    <h2 class="section-title">What happens next</h2>
+    <ol class="steps">
+      <li><strong>Validate {{ source('Rule') }}</strong><span>Required fields and formats are checked by code.</span></li>
+      <li><strong>Understand {{ source('AI') }}</strong><span>{{ 'Sample AI output (demo mode)' if demo_mode else 'The LLM' }} reads the message: intent, summary, context details, questions and an email draft.</span></li>
+      <li><strong>Check the AI {{ source('Rule') }}</strong><span>The AI's JSON is validated. If it's malformed, a safe fallback is used.</span></li>
+      <li><strong>Decide {{ source('Rule') }}</strong><span>Business rules set final priority, routing, warnings and the follow-up date.</span></li>
+      <li><strong>Approve {{ source('Human') }}</strong><span>You approve the email and can override priority or the next action. Nothing is sent automatically.</span></li>
+    </ol>
+  </aside>
+</div>
+{% endblock %}

@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% from "_macros.html" import priority_badge, status_badge, due with context %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Lead dashboard</h1>
+    <p class="muted">Every inbound lead, analyzed, prioritized and scheduled for follow-up.</p>
+  </div>
+  <a class="btn btn-primary" href="{{ url_for('new_lead') }}">+ New lead</a>
+</div>
+
+<section class="stats">
+  <div class="stat">
+    <span class="stat-label">Total leads</span>
+    <span class="stat-value">{{ stats.total }}</span>
+    <span class="stat-note">All time</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">High priority</span>
+    <span class="stat-value stat-high">{{ stats.high_priority }}</span>
+    <span class="stat-note">Open leads marked High</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">Awaiting follow-up</span>
+    <span class="stat-value">{{ stats.needs_follow_up }}</span>
+    <span class="stat-note">{% if stats.due_now %}<strong class="text-late">{{ stats.due_now }} due today or overdue</strong>{% else %}Not yet contacted{% endif %}</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">Emails to review</span>
+    <span class="stat-value">{{ stats.drafts_pending }}</span>
+    <span class="stat-note">AI drafts awaiting approval</span>
+  </div>
+</section>
+
+<section class="card">
+  <div class="card-head">
+    <h2>Recent leads</h2>
+    {% if leads %}<span class="muted small">Showing {{ leads|length }} most recent</span>{% endif %}
+  </div>
+
+  {% if leads %}
+  <div class="table-wrap">
+    <table class="leads-table">
+      <thead>
+        <tr>
+          <th>Lead</th>
+          <th>Service</th>
+          <th>Priority</th>
+          <th>Status</th>
+          <th class="col-wide">AI summary</th>
+          <th class="col-wide">Recommended action</th>
+          <th>Follow-up</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for lead in leads %}
+        <tr class="row-link" data-href="{{ url_for('lead_detail', lead_id=lead.id) }}">
+          <td>
+            <a class="lead-name" href="{{ url_for('lead_detail', lead_id=lead.id) }}">{{ lead.first_name }} {{ lead.last_name }}</a>
+            <span class="muted small block">{{ lead.created_at|nice_date }}</span>
+          </td>
+          <td class="nowrap">{{ lead.service_interest }}</td>
+          <td>{{ priority_badge(lead.priority) }}{% if lead.human_priority %}<span class="muted small block" title="Priority set by a person">manual</span>{% endif %}</td>
+          <td>{{ status_badge(lead.status) }}</td>
+          <td class="col-wide"><span class="clamp">{{ lead.summary }}</span>
+            {% if lead.source == 'fallback' %}<span class="tag tag-warn">Needs manual review</span>{% endif %}
+          </td>
+          <td class="col-wide"><span class="clamp">{{ lead.next_action }}</span></td>
+          <td class="nowrap">{{ due(lead) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">
+    <h3>No leads yet</h3>
+    <p class="muted">Submit a lead to see LeadFlow analyze and prioritize it.<br>
+      For a quick demo, run <code>python seed.py</code> to load sample leads.</p>
+    <a class="btn btn-primary" href="{{ url_for('new_lead') }}">Add your first lead</a>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

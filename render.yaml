@@ -1,0 +1,29 @@
+# Deployment on Render (https://render.com): New > Blueprint > pick this repo.
+#
+# Secrets are NOT stored here. In Render: your service > Environment, add
+#   ANTHROPIC_API_KEY  your Claude API key
+#   APP_PASSWORD       the password visitors must enter to use the site
+#
+# Notes for the free plan:
+# - The service sleeps after ~15 minutes without visitors; the first visit then takes ~1 minute.
+# - The disk is temporary, so the database is rebuilt with fresh sample leads on every start
+#   (sample leads use the built-in demo analysis, so restarts never spend API credits).
+services:
+  - type: web
+    name: leadflow
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python seed.py --reset && gunicorn --bind 0.0.0.0:$PORT "app:create_app()"
+    healthCheckPath: /healthz
+    envVars:
+      - key: DEMO_MODE
+        value: "false"          # use the real AI
+      - key: AI_HOURLY_LIMIT
+        value: "30"             # cost guard: max AI-analyzed leads per hour
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ANTHROPIC_API_KEY
+        sync: false             # entered in the Render dashboard, never in GitHub
+      - key: APP_PASSWORD
+        sync: false             # entered in the Render dashboard, never in GitHub

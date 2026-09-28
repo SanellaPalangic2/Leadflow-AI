@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% from "_macros.html" import priority_badge, status_badge, due, source with context %}
+{% block title %}{{ lead.first_name }} {{ lead.last_name }}{% endblock %}
+{% block content %}
+<a class="back" href="{{ url_for('dashboard') }}">← All leads</a>
+
+<div class="page-head detail-head">
+  <div>
+    <h1>{{ lead.first_name }} {{ lead.last_name }}</h1>
+    <div class="head-meta">
+      {{ priority_badge(lead.priority) }}{% if lead.human_priority %}<span class="small muted">set by a person</span>{% endif %}
+      {{ status_badge(lead.status) }}
+      <span class="badge badge-outline">{{ lead.service_interest }}</span>
+      {% for t in lead.tags %}<span class="tag">{{ t }}</span>{% endfor %}
+      {% if lead.source == 'llm' %}<span class="badge badge-source">Analyzed by AI</span>
+      {% elif lead.source == 'demo' %}<span class="badge badge-source">Demo AI output</span>
+      {% else %}<span class="badge badge-fallback">Rule-based fallback</span>{% endif %}
+      <span class="muted small">Received {{ lead.created_at|nice_datetime }}</span>
+    </div>
+  </div>
+</div>
+
+{% if lead.ai_error or lead.warnings %}
+<div class="alert alert-warning">
+  {% if lead.ai_error %}<p><strong>AI analysis unavailable:</strong> {{ lead.ai_error }} This lead was processed with rule-based defaults and needs a manual review.</p>{% endif %}
+  {% if lead.warnings %}
+  <p class="alert-title">{{ source('Rule') }} Missing information</p>
+  <ul class="warn-list">{% for w in lead.warnings %}<li>{{ w }}</li>{% endfor %}</ul>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="detail-layout">
+  <div class="detail-main">
+
+    <section class="card">
+      <div class="card-head">
+        <h2>{{ source('AI' if lead.source != 'fallback' else 'Rule') }} Understanding the inquiry</h2>
+        <span class="muted small">{{ lead.intent }}</span>
+      </div>
+      <p class="summary">{{ lead.summary }}</p>
+
+      <div class="next-action {{ 'next-action-human' if lead.human_next_action }}">
+        <span class="label">Recommended next action{% if lead.human_next_action %} · changed by a person{% endif %}</span>
+        <p>{{ lead.next_action }}</p>
+      </div>
+
+      <div class="grid-2 lists">
+        <div>
+          <h3>Key details from the message</h3>
+          {% if lead.key_details %}
+            <ul class="check-list">{% for d in lead.key_details %}<li>{{ d }}</li>{% endfor %}</ul>
+          {% else %}<p class="muted small">No specific details detected.</p>{% endif %}
+        </div>
+        <div>
+          <h3>Questions to clarify</h3>
+          {% if lead.missing_info %}
+            <ul class="missing-list">{% for m in lead.missing_info %}<li>{{ m }}</li>{% endfor %}</ul>
+          {% else %}<p class="muted small">Nothing flagged.</p>{% endif %}
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="why">
+      <div class="card-head">
+        <h2>Why this decision?</h2>
+        <span class="legend small">{{ source('Rule') }} fixed business logic {{ source('AI') }} reads the customer's words {{ source('Human') }} a person's call</span>
+      </div>
+      <div class="why">
+        {% for row in decisions %}
+        <div class="why-row">
+          <div class="why-what">
+            <span class="why-label">{{ row.label }}</span>
+            <span class="why-value">{{ row.value|nice_date if row.is_date else row.value }}</span>
+          </div>
+          <div class="why-by">{% for s in row.sources %}{{ source(s) }}{% endfor %}</div>
+          <div class="why-reason">{{ row.reason }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="card" id="email">
+      <div class="card-head">
+        <h2>{{ source('AI' if lead.source != 'fallback' else 'Rule') }} Follow-up email draft</h2>
+        <span class="badge email-{{ lead.email_status|lower|replace(' ', '-') }}">{{ lead.email_status }}</span>
+      </div>
+      {% if not lead.email %}
+      <p class="hint hint-warn">There's no email address for this lead. Use this draft as talking points for the phone call.</p>
+      {% endif %}
+      <p class="hint">{{ source('Human') }} A person must approve every draft. LeadFlow never sends email automatically.
+        {% if lead.email_edited %}<br>This draft was edited by a person.{% endif %}
+        {% if lead.email_reviewed_at %}<br>{{ lead.email_status }} {{ lead.email_reviewed_at|nice_datetime }}.{% endif %}
+      </p>
+
+      <div class="email-preview" id="email-preview">
+        <div class="email-row"><span>To</span>{{ lead.email or '— no email on file' }}</div>
+        <div class="email-row"><span>Subject</span><strong id="email-subject">{{ lead.email_subject }}</strong></div>
+        <div class="email-body" id="email-body">{{ lead.email_body }}</div>
+      </div>
+
+      <form class="email-edit" id="email-edit" method="post" action="{{ url_for('edit_email', lead_id=lead.id) }}" hidden>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label class="field"><span>Subject</span>
+          <input name="email_subject" value="{{ lead.email_subject }}" maxlength="150" required></label>
+        <label class="field"><span>Body</span>
+          <textarea name="email_body" rows="12" maxlength="5000" required>{{ lead.email_body }}</textarea></label>
+        <div class="form-actions">
+          <button type="button" class="btn btn-ghost" data-toggle-edit>Cancel</button>
+          <button class="btn btn-primary">Save changes</button>
+        </div>
+      </form>
+
+      <div class="email-actions" id="email-actions">
+        {% if lead.email_status == 'Pending review' %}
+          <form method="post" action="{{ url_for('review_email', lead_id=lead.id, action='approve') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-approve">✓ Approve</button>
+          </form>
+          <button type="button" class="btn btn-secondary" data-toggle-edit>Edit</button>
+          <form method="post" action="{{ url_for('review_email', lead_id=lead.id, action='reject') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-reject">✕ Reject</button>
+          </form>
+        {% else %}
+          {% if lead.email_status == 'Approved' %}
+            <button type="button" class="btn btn-primary" data-copy-email>Copy email</button>
+          {% endif %}
+          <form method="post" action="{{ url_for('review_email', lead_id=lead.id, action='reopen') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-ghost">Move back to review</button>
+          </form>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>Original message</h2></div>
+      <p class="original">{{ lead.message or 'No message provided.' }}</p>
+    </section>
+  </div>
+
+  <aside class="detail-side">
+    <form class="card decisions-card" method="post" action="{{ url_for('save_decisions', lead_id=lead.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <h2 class="section-title">{{ source('Human') }} Your decisions</h2>
+      <label class="field"><span>Lead status</span>
+        <select name="status">
+          {% for s in statuses %}<option value="{{ s }}" {{ 'selected' if s == lead.status }}>{{ s }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="field"><span>Priority</span>
+        <select name="priority">
+          <option value="" {{ 'selected' if not lead.human_priority }}>Use rules ({{ lead.rule_priority }})</option>
+          {% for p in priorities %}<option value="{{ p }}" {{ 'selected' if p == lead.human_priority }}>{{ p }} (override)</option>{% endfor %}
+        </select>
+      </label>
+      <label class="field"><span>Next action</span>
+        <textarea name="next_action" rows="3" maxlength="300">{{ lead.next_action }}</textarea>
+      </label>
+      <button class="btn btn-primary btn-block">Save decisions</button>
+      <p class="hint small">Clear the next action to go back to the AI's suggestion.</p>
+    </form>
+
+    <section class="card">
+      <h2 class="section-title">{{ source('Rule') }} Follow-up</h2>
+      <div class="follow-date">{{ due(lead) }}</div>
+      <dl class="kv">
+        <dt>Department</dt><dd>{{ lead.department }}</dd>
+      </dl>
+    </section>
+
+    <section class="card">
+      <h2 class="section-title">Contact</h2>
+      <dl class="kv">
+        <dt>Email</dt><dd>{% if lead.email %}<a href="mailto:{{ lead.email }}">{{ lead.email }}</a>{% else %}<span class="missing">Not provided</span>{% endif %}</dd>
+        <dt>Phone</dt><dd>{% if lead.phone %}<a href="tel:{{ lead.phone }}">{{ lead.phone }}</a>{% else %}<span class="missing">Not provided</span>{% endif %}</dd>
+        <dt>Address</dt><dd>{{ lead.address or '' }}{% if not lead.address %}<span class="missing">Not provided</span>{% endif %}</dd>
+        <dt>Monthly bill</dt><dd>{% if lead.monthly_bill is not none %}${{ '{:,.0f}'.format(lead.monthly_bill) }}{% else %}<span class="missing">Not provided</span>{% endif %}</dd>
+        <dt>Service</dt><dd>{{ lead.service_interest }}</dd>
+      </dl>
+    </section>
+
+    {% if lead.raw_response %}
+    <details class="card raw">
+      <summary>Raw AI response{% if lead.source == 'fallback' %} (rejected){% endif %}</summary>
+      <pre>{{ lead.raw_response }}</pre>
+    </details>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}
